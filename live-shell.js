@@ -322,7 +322,7 @@
     }, backendOrigin);
   }
 
-  function allowedTopRedirect(value, messageType) {
+  function allowedTopRedirect(value, messageType, authOrigin) {
     try {
       var url = new URL(String(value || ''), backendOrigin);
       if (url.username || url.password || url.hash) return '';
@@ -331,7 +331,29 @@
       var paymentHandoffRelayMatch = url.pathname.match(/^\/live\/([A-Za-z0-9_-]+)\/payment-handoff\/relay$/);
       var paymentHandoffDirectMatch = url.pathname.match(/^\/live\/([A-Za-z0-9_-]+)\/payment-handoff$/);
       var isBusinessLive = /^\/live\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]{12})?$/.test(url.pathname);
-      if (messageType === 'wechat-login' && (!isWechatAuth || url.origin !== backendOrigin)) return '';
+      if (messageType === 'wechat-login') {
+        var expectedAuthOrigin = String(authOrigin || '');
+        var parsedAuthOrigin = new URL(expectedAuthOrigin);
+        var authReturnPath = url.searchParams.get('return') || '';
+        var authReturn = new URL(authReturnPath, backendOrigin);
+        if (!isWechatAuth
+          || url.protocol !== 'https:'
+          || parsedAuthOrigin.protocol !== 'https:'
+          || parsedAuthOrigin.origin !== expectedAuthOrigin
+          || url.origin !== expectedAuthOrigin
+          || url.searchParams.get('_github_embed') !== '1'
+          || url.searchParams.get('return_origin') !== backendOrigin
+          || authReturn.origin !== backendOrigin
+          || authReturn.pathname !== '/auth/wechat/github-return'
+          || authReturn.searchParams.get('direct') !== '1'
+          || !validShellReturnUrl(authReturn.searchParams.get('target') || '')
+          || Array.from(url.searchParams.keys()).some(function (key) {
+            return key !== '_github_embed' && key !== 'return' && key !== 'return_origin';
+          })
+          || Array.from(authReturn.searchParams.keys()).some(function (key) {
+            return key !== 'direct' && key !== 'target';
+          })) return '';
+      }
       if (messageType === 'top-redirect' && !isPaymentResult) return '';
       if (messageType === 'payment-handoff') {
         var validRelay = url.origin === backendOrigin
@@ -345,7 +367,7 @@
         if (Array.from(url.searchParams.keys()).some(key => key !== 'token')) return '';
         return url.href;
       }
-      if (url.origin !== backendOrigin) return '';
+      if (messageType !== 'wechat-login' && url.origin !== backendOrigin) return '';
       if (messageType === 'business-action') {
         if (!isBusinessLive || !/^\d+$/.test(url.searchParams.get('purchase') || '')) return '';
         var purchaseStep = url.searchParams.get('purchase_step') || '';
@@ -448,7 +470,7 @@
     }
     if (event.data.type === 'live-share-info') updateMeta(event.data);
     if ((event.data.type === 'wechat-login' || event.data.type === 'top-redirect' || event.data.type === 'business-action' || event.data.type === 'payment-handoff') && event.source === frame.contentWindow) {
-      var target = allowedTopRedirect(event.data.url, event.data.type);
+      var target = allowedTopRedirect(event.data.url, event.data.type, event.data.auth_origin);
       if (target) window.location.assign(target);
     }
   });
