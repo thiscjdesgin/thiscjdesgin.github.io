@@ -17,6 +17,63 @@
   var frameReadyTimer = null;
   var baseFrameTarget = '';
   var terminalFrameState = false;
+  var authCheckPanel = null;
+  var authCheckAttempt = 0;
+
+  function renderAuthCheck(message) {
+    if (authCheckPanel) authCheckPanel.textContent = '微信授权诊断 · 20261128-7\n' + message;
+  }
+
+  // Fragment enables a local, read-only diagnostic; it never enters a room or OAuth URL.
+  function enableAuthCheck() {
+    if (window.location.hash !== '#wechat-auth-check') return;
+    try {
+      var panel = document.createElement('div');
+      panel.setAttribute('role', 'status');
+      panel.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 4px);left:4px;right:4px;z-index:30;padding:6px 8px;color:#fff;background:rgba(15,23,42,.92);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.45 system-ui,sans-serif;pointer-events:none';
+      document.body.appendChild(panel);
+      authCheckPanel = panel;
+      renderAuthCheck('等待外壳收到授权请求。请点一次关注。');
+    } catch (error) {
+      authCheckPanel = null;
+    }
+  }
+
+  function startAuthCheck(request) {
+    if (!authCheckPanel) return null;
+    try {
+      var attempt = ++authCheckAttempt;
+      var clock = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(11, 19);
+      var prefix = '北京时间 ' + clock + ' · ';
+      if (!request.target) {
+        renderAuthCheck(prefix + '外壳拒绝：' + request.reason);
+        return null;
+      }
+      var url = new URL(request.target);
+      var activation = window.navigator && window.navigator.userActivation;
+      var gesture = activation && typeof activation.isActive === 'boolean'
+        ? (activation.isActive ? '有' : '无') : '不可读';
+      var summary = prefix + url.host + url.pathname + '\n回跳房间匹配 · 外壳点击激活：' + gesture;
+      renderAuthCheck(summary + '\n外壳已校验，准备跳转');
+      return { attempt: attempt, summary: summary };
+    } catch (error) {
+      // Even in test mode, diagnostics must not interrupt authorization.
+      return null;
+    }
+  }
+
+  function finishAuthCheck(check, result) {
+    if (!check || check.attempt !== authCheckAttempt) return;
+    if (result === 'throw') {
+      renderAuthCheck(check.summary + '\n跳转调用报错（同步）');
+      return;
+    }
+    renderAuthCheck(check.summary + '\n已调用跳转，尚未确认请求发送');
+    window.setTimeout(function () {
+      if (check.attempt !== authCheckAttempt || document.visibilityState === 'hidden') return;
+      renderAuthCheck(check.summary + '\n已调用跳转，4秒后仍停留在外壳');
+    }, 4000);
+  }
 
   // GitHub Pages 是微信中的顶层 WebView。部分 Android 微信会在顶层直接
   // 放大 iframe 内的字形，因此必须在外壳层先声明页面自行管理字号。
@@ -438,6 +495,7 @@
     showError('zb地址无效或暂未配置');
     return;
   }
+  enableAuthCheck();
   if (authHandoffPattern.test(route.authHandoff)) {
     var cleanLocation = new URL(window.location.href);
     cleanLocation.searchParams.delete('auth_handoff');
@@ -494,6 +552,7 @@
     if ((event.data.type === 'wechat-login' || event.data.type === 'top-redirect' || event.data.type === 'business-action' || event.data.type === 'payment-handoff') && event.source === frame.contentWindow) {
       if (event.data.type === 'wechat-login') {
         var authRequest = inspectWechatAuthRedirect(event.data.url, event.data.auth_origin);
+        var authCheck = startAuthCheck(authRequest);
         var requestId = String(event.data.request_id || '');
         if (/^[A-Za-z0-9_-]{1,64}$/.test(requestId)) {
           frame.contentWindow.postMessage({
@@ -504,9 +563,13 @@
           }, backendOrigin);
         }
         if (authRequest.target) {
+          var navigationResult = 'called';
           try {
             window.location.assign(authRequest.target);
-          } catch (error) {}
+          } catch (error) {
+            navigationResult = 'throw';
+          }
+          finishAuthCheck(authCheck, navigationResult);
         }
         return;
       }
