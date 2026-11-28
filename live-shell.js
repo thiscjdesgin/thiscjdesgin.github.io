@@ -21,7 +21,7 @@
   var authCheckAttempt = 0;
 
   function renderAuthCheck(message) {
-    if (authCheckPanel) authCheckPanel.textContent = '微信授权诊断 · 20261128-7\n' + message;
+    if (authCheckPanel) authCheckPanel.textContent = '微信授权诊断 · 20261128-8\n' + message;
   }
 
   // Fragment enables a local, read-only diagnostic; it never enters a room or OAuth URL.
@@ -495,7 +495,8 @@
     showError('zb地址无效或暂未配置');
     return;
   }
-  enableAuthCheck();
+  var viewerLogoutMode = new URLSearchParams(window.location.search).get('viewer_logout') === '1';
+  if (!viewerLogoutMode) enableAuthCheck();
   if (authHandoffPattern.test(route.authHandoff)) {
     var cleanLocation = new URL(window.location.href);
     cleanLocation.searchParams.delete('auth_handoff');
@@ -507,9 +508,10 @@
   targetParams.set('_github_embed', '1');
   if (/^[a-f0-9]{48}$/i.test(route.token)) targetParams.set('t', route.token);
   if (route.source) targetParams.set('s', route.source);
-  if (authHandoffPattern.test(route.authHandoff)) targetParams.set('auth_handoff', route.authHandoff);
+  if (viewerLogoutMode) targetParams.set('viewer_logout', '1');
   if (visitorToken) targetParams.set('vt', visitorToken);
-  if (route.paymentState) {
+  if (!viewerLogoutMode && authHandoffPattern.test(route.authHandoff)) targetParams.set('auth_handoff', route.authHandoff);
+  if (!viewerLogoutMode && route.paymentState) {
     targetParams.set('payment', route.paymentState);
     targetParams.set('order_no', route.paymentOrderNo);
   }
@@ -530,6 +532,19 @@
       clearFrameReadyTimer();
       hideFrameRecovery();
       return;
+    }
+    if (viewerLogoutMode && event.source === frame.contentWindow && String(event.data.room || '') === route.slug) {
+      if (event.data.type === 'live-viewer-logout-ready') {
+        businessFrameReady = true;
+        clearFrameReadyTimer();
+        hideFrameRecovery();
+        return;
+      }
+      if (event.data.type === 'live-viewer-logout-return') {
+        var returnToRoom = shellContextReturnUrl();
+        if (returnToRoom) window.location.replace(returnToRoom);
+        return;
+      }
     }
     if (event.data.type === 'live-shell-ready' && event.source === frame.contentWindow) {
       businessFrameReady = true;
