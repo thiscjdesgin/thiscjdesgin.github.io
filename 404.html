@@ -21,8 +21,8 @@
     #wechatAuthFallbackPanel{width:min(100%,360px);box-sizing:border-box;padding:24px;background:#fff;border-radius:8px;text-align:center;box-shadow:0 12px 36px rgba(0,0,0,.28)}
     #wechatAuthFallbackTitle{margin:0 0 8px;font-size:18px;font-weight:700}
     #wechatAuthFallbackText{margin:0 0 20px;color:#475569}
-    #wechatAuthContinue,#wechatAuthDismiss{display:block;width:100%;min-height:46px;border:0;border-radius:6px;font:inherit;cursor:pointer}
-    #wechatAuthContinue{background:#ed3156;color:#fff;font-weight:700}
+    #wechatAuthContinue,#wechatAuthDismiss{display:flex;align-items:center;justify-content:center;width:100%;min-height:46px;box-sizing:border-box;border:0;border-radius:6px;font:inherit;text-align:center;cursor:pointer}
+    #wechatAuthContinue{background:#ed3156;color:#fff;font-weight:700;text-decoration:none}
     #wechatAuthDismiss{margin-top:8px;background:#f1f3f5;color:#364152}
   </style>
 </head>
@@ -32,11 +32,11 @@
     <section id="wechatAuthFallbackPanel">
       <h1 id="wechatAuthFallbackTitle">授权页面没有自动打开</h1>
       <p id="wechatAuthFallbackText">请点击下方按钮继续微信授权。</p>
-      <button id="wechatAuthContinue" type="button">继续授权</button>
+      <a id="wechatAuthContinue" role="link" aria-label="继续微信授权">继续授权</a>
       <button id="wechatAuthDismiss" type="button">稍后再试</button>
     </section>
   </div>
   <noscript><div id="errorMessage">请启用 JavaScript 后打开zb</div></noscript>
-  <script src="/live-shell.js?v=20261128-4" defer></script>
+  <script src="/live-shell.js?v=20261128-5" defer></script>
 </body>
 </html>
