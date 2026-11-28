@@ -23,19 +23,19 @@
   var baseFrameTarget = '';
   var terminalFrameState = false;
 
-  if (wechatAuthContinue && typeof wechatAuthContinue.addEventListener === 'function') {
-    wechatAuthContinue.addEventListener('click', function () {
-      if (!pendingWechatAuthTarget) return;
-      try {
-        window.location.assign(pendingWechatAuthTarget);
-      } catch (error) {
-        if (wechatAuthFallback) wechatAuthFallback.hidden = false;
-      }
-    });
+  function setWechatAuthContinueTarget(target) {
+    if (!wechatAuthContinue || !target || typeof wechatAuthContinue.setAttribute !== 'function') return;
+    wechatAuthContinue.setAttribute('href', target);
+  }
+
+  function clearWechatAuthContinueTarget() {
+    if (!wechatAuthContinue || typeof wechatAuthContinue.removeAttribute !== 'function') return;
+    wechatAuthContinue.removeAttribute('href');
   }
   if (wechatAuthDismiss && typeof wechatAuthDismiss.addEventListener === 'function') {
     wechatAuthDismiss.addEventListener('click', function () {
       pendingWechatAuthTarget = '';
+      clearWechatAuthContinueTarget();
       if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
       wechatAuthFallbackTimer = null;
       if (wechatAuthFallback) wechatAuthFallback.hidden = true;
@@ -529,6 +529,7 @@
         }
         if (authRequest.target) {
           pendingWechatAuthTarget = authRequest.target;
+          setWechatAuthContinueTarget(authRequest.target);
           if (wechatAuthFallback) wechatAuthFallback.hidden = true;
           if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
           wechatAuthFallbackTimer = window.setTimeout(function () {
@@ -542,6 +543,7 @@
           }
         } else {
           pendingWechatAuthTarget = '';
+          clearWechatAuthContinueTarget();
           if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
           wechatAuthFallbackTimer = null;
           if (wechatAuthFallback) wechatAuthFallback.hidden = true;
