@@ -4,11 +4,6 @@
   var page = document.body;
   var frame = document.getElementById('liveFrame');
   var backendOrigin = String(page.dataset.backendOrigin || '').replace(/\/$/, '');
-  var wechatAuthFallback = document.getElementById('wechatAuthFallback');
-  var wechatAuthContinue = document.getElementById('wechatAuthContinue');
-  var wechatAuthDismiss = document.getElementById('wechatAuthDismiss');
-  var pendingWechatAuthTarget = '';
-  var wechatAuthFallbackTimer = null;
   var shareImage = String(page.dataset.shareImage || '').trim();
   var allowedToken = /^(?:[A-Za-z0-9_-]{12}|[a-f0-9]{48})$/i;
   var shareSourcePattern = /^(?:[A-Za-z0-9_-]{12}|[a-f0-9]{48})$/;
@@ -22,25 +17,6 @@
   var frameReadyTimer = null;
   var baseFrameTarget = '';
   var terminalFrameState = false;
-
-  function setWechatAuthContinueTarget(target) {
-    if (!wechatAuthContinue || !target || typeof wechatAuthContinue.setAttribute !== 'function') return;
-    wechatAuthContinue.setAttribute('href', target);
-  }
-
-  function clearWechatAuthContinueTarget() {
-    if (!wechatAuthContinue || typeof wechatAuthContinue.removeAttribute !== 'function') return;
-    wechatAuthContinue.removeAttribute('href');
-  }
-  if (wechatAuthDismiss && typeof wechatAuthDismiss.addEventListener === 'function') {
-    wechatAuthDismiss.addEventListener('click', function () {
-      pendingWechatAuthTarget = '';
-      clearWechatAuthContinueTarget();
-      if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
-      wechatAuthFallbackTimer = null;
-      if (wechatAuthFallback) wechatAuthFallback.hidden = true;
-    });
-  }
 
   // GitHub Pages 是微信中的顶层 WebView。部分 Android 微信会在顶层直接
   // 放大 iframe 内的字形，因此必须在外壳层先声明页面自行管理字号。
@@ -528,25 +504,9 @@
           }, backendOrigin);
         }
         if (authRequest.target) {
-          pendingWechatAuthTarget = authRequest.target;
-          setWechatAuthContinueTarget(authRequest.target);
-          if (wechatAuthFallback) wechatAuthFallback.hidden = true;
-          if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
-          wechatAuthFallbackTimer = window.setTimeout(function () {
-            if (pendingWechatAuthTarget !== authRequest.target || !wechatAuthFallback) return;
-            wechatAuthFallback.hidden = false;
-          }, 2400);
           try {
             window.location.assign(authRequest.target);
-          } catch (error) {
-            if (wechatAuthFallback) wechatAuthFallback.hidden = false;
-          }
-        } else {
-          pendingWechatAuthTarget = '';
-          clearWechatAuthContinueTarget();
-          if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
-          wechatAuthFallbackTimer = null;
-          if (wechatAuthFallback) wechatAuthFallback.hidden = true;
+          } catch (error) {}
         }
         return;
       }
