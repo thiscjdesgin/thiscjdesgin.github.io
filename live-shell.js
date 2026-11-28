@@ -4,6 +4,11 @@
   var page = document.body;
   var frame = document.getElementById('liveFrame');
   var backendOrigin = String(page.dataset.backendOrigin || '').replace(/\/$/, '');
+  var wechatAuthFallback = document.getElementById('wechatAuthFallback');
+  var wechatAuthContinue = document.getElementById('wechatAuthContinue');
+  var wechatAuthDismiss = document.getElementById('wechatAuthDismiss');
+  var pendingWechatAuthTarget = '';
+  var wechatAuthFallbackTimer = null;
   var shareImage = String(page.dataset.shareImage || '').trim();
   var allowedToken = /^(?:[A-Za-z0-9_-]{12}|[a-f0-9]{48})$/i;
   var shareSourcePattern = /^(?:[A-Za-z0-9_-]{12}|[a-f0-9]{48})$/;
@@ -17,6 +22,20 @@
   var frameReadyTimer = null;
   var baseFrameTarget = '';
   var terminalFrameState = false;
+
+  if (wechatAuthContinue && typeof wechatAuthContinue.addEventListener === 'function') {
+    wechatAuthContinue.addEventListener('click', function () {
+      if (pendingWechatAuthTarget) window.location.assign(pendingWechatAuthTarget);
+    });
+  }
+  if (wechatAuthDismiss && typeof wechatAuthDismiss.addEventListener === 'function') {
+    wechatAuthDismiss.addEventListener('click', function () {
+      pendingWechatAuthTarget = '';
+      if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
+      wechatAuthFallbackTimer = null;
+      if (wechatAuthFallback) wechatAuthFallback.hidden = true;
+    });
+  }
 
   // GitHub Pages 是微信中的顶层 WebView。部分 Android 微信会在顶层直接
   // 放大 iframe 内的字形，因此必须在外壳层先声明页面自行管理字号。
@@ -503,7 +522,21 @@
             reason: authRequest.reason
           }, backendOrigin);
         }
-        if (authRequest.target) window.setTimeout(function () { window.location.assign(authRequest.target); }, 50);
+        if (authRequest.target) {
+          pendingWechatAuthTarget = authRequest.target;
+          if (wechatAuthFallback) wechatAuthFallback.hidden = true;
+          if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
+          window.location.assign(authRequest.target);
+          wechatAuthFallbackTimer = window.setTimeout(function () {
+            if (pendingWechatAuthTarget !== authRequest.target || !wechatAuthFallback) return;
+            wechatAuthFallback.hidden = false;
+          }, 2400);
+        } else {
+          pendingWechatAuthTarget = '';
+          if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
+          wechatAuthFallbackTimer = null;
+          if (wechatAuthFallback) wechatAuthFallback.hidden = true;
+        }
         return;
       }
       var target = allowedTopRedirect(event.data.url, event.data.type, event.data.auth_origin);
