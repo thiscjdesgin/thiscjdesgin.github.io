@@ -25,7 +25,12 @@
 
   if (wechatAuthContinue && typeof wechatAuthContinue.addEventListener === 'function') {
     wechatAuthContinue.addEventListener('click', function () {
-      if (pendingWechatAuthTarget) window.location.assign(pendingWechatAuthTarget);
+      if (!pendingWechatAuthTarget) return;
+      try {
+        window.location.assign(pendingWechatAuthTarget);
+      } catch (error) {
+        if (wechatAuthFallback) wechatAuthFallback.hidden = false;
+      }
     });
   }
   if (wechatAuthDismiss && typeof wechatAuthDismiss.addEventListener === 'function') {
@@ -526,11 +531,15 @@
           pendingWechatAuthTarget = authRequest.target;
           if (wechatAuthFallback) wechatAuthFallback.hidden = true;
           if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
-          window.location.assign(authRequest.target);
           wechatAuthFallbackTimer = window.setTimeout(function () {
             if (pendingWechatAuthTarget !== authRequest.target || !wechatAuthFallback) return;
             wechatAuthFallback.hidden = false;
           }, 2400);
+          try {
+            window.location.assign(authRequest.target);
+          } catch (error) {
+            if (wechatAuthFallback) wechatAuthFallback.hidden = false;
+          }
         } else {
           pendingWechatAuthTarget = '';
           if (wechatAuthFallbackTimer !== null) window.clearTimeout(wechatAuthFallbackTimer);
